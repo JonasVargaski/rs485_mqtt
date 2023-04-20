@@ -2,7 +2,6 @@
 #include <SPIFFS.h>
 #include <ArduinoJson.h>
 #include <TaskScheduler.h>
-#include <ModbusHandler.h>
 
 #include "mqtt.h"
 #include "utils.h"
@@ -10,9 +9,9 @@
 #include "modbus.h"
 #include "ota.h"
 #include "web_server.h"
+#include "setup_wifi.h"
 
 Scheduler taskRunner;
-ModbusHandler mb;
 
 #define BUILTIN_BUTTON = 15;
 
@@ -53,19 +52,6 @@ void syncModbusMqtt()
   }
 }
 
-void initWiFi()
-{
-  WiFi.mode(WIFI_STA);
-  WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
-  WiFi.setHostname(config.deviceId.c_str());
-  WiFi.begin(config.wifi.ssid, config.wifi.pass);
-  WiFi.softAPConfig(config.wifi.apIP, config.wifi.apIP, config.wifi.netMsk);
-  WiFi.softAP(config.deviceId.c_str(), hexToStr(ESP.getEfuseMac()));
-
-  Serial.print(F("Connecting to ssid: "));
-  Serial.println(config.wifi.ssid);
-}
-
 void setup()
 {
   pinMode(LED_BUILTIN, OUTPUT);
@@ -77,8 +63,7 @@ void setup()
   else
     Serial.println(F("SPIFFS error. Using default configs"));
 
-  initWiFi();
-
+  setupWifi();
   setupOTA();
   setupWebServer();
   setupModbusMaster();
