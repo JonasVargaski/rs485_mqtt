@@ -1,0 +1,25 @@
+{
+  "wifi": {
+    "ssid": "Vargaski",
+    "pass": "12345678",
+    "host": "rs485_mqtt_HUB"
+  },
+  "mqtt": {
+    "server": "broker.mqtt-dashboard.com",
+    "clientId": "esp-32-mtqq-web-client-unique",
+    "modbusTopic": "esp-32-mtqq-web-client-unique",
+    "publishInterval": 1000,
+    "port": 1883
+  },
+  "modbus": {
+    "baudrate": 19200,
+    "dataBits": 8,
+    "parity": false,
+    "stopBits": 2,
+    "slaveId": 10,
+    "mapping": [
+      { "id": "mqtt_topic:modbus-coil-1", "type": "COIL", "address": 100 },
+      { "id": "mqtt_topic:modbus-hreg-1", "type": "HREG", "address": 101 }
+    ]
+  }
+}
