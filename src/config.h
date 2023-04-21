@@ -1,9 +1,21 @@
 #ifndef _APP_CONFIG_H_
 #define _APP_CONFIG_H_
 #include "Arduino.h"
+#include <SPIFFS.h>
+#include <ArduinoJson.h>
 #include "utils.h"
 
-const size_t JSON_SIZE = JSON_OBJECT_SIZE(20) + 4048;
+const size_t JSON_SIZE = JSON_OBJECT_SIZE(50) + 2048;
+#define MB_MAX_REGISTERS 50
+
+struct ModbusMapReg
+{
+  char type = 'N';
+  int slave_id = 0;
+  uint16_t addr = 0;
+  uint16_t h_value = 0;
+  bool c_value = false;
+};
 
 struct AppConfig
 {
@@ -12,7 +24,7 @@ struct AppConfig
   struct WifiConfig
   {
     char ssid[30] = "";
-    char pass[20] = "";
+    char pass[30] = "";
     IPAddress apIP = IPAddress(192, 168, 4, 1);
     IPAddress netMsk = IPAddress(255, 255, 255, 0);
   } wifi;
@@ -20,19 +32,18 @@ struct AppConfig
   struct MqttConfig
   {
     char server[60] = "broker.mqtt-dashboard.com";
-    char clientId[50] = "";
-    char modbusTopic[50] = "";
+    char clientId[60] = "";
+    char resultTopic[60] = "";
     unsigned int port = 1883;
-    unsigned int publishInterval = 1000;
+    unsigned int interval = 1000;
   } mqtt;
 
   struct ModbusConfig
   {
-    int slaveId = 1;
-    int serialType = 3;
     int baudrate = 9600;
-    int hreg[30] = {0, 1, 2};
-    int coils[20];
+    int serialType = 3;
+    int reg_count = 0;
+    ModbusMapReg registers[MB_MAX_REGISTERS];
   } modbus;
 
   void load(FS &fs)
@@ -46,22 +57,88 @@ struct AppConfig
 
       if (!err)
       {
+        // wifi
         strlcpy(wifi.ssid, json[F("wifi")][F("ssid")] | wifi.ssid, sizeof(wifi.ssid));
         strlcpy(wifi.pass, json[F("wifi")][F("pass")] | wifi.pass, sizeof(wifi.pass));
 
+        // mqtt
         strlcpy(mqtt.server, json[F("mqtt")][F("server")] | mqtt.server, sizeof(mqtt.server));
         strlcpy(mqtt.clientId, json[F("mqtt")][F("clientId")] | mqtt.clientId, sizeof(mqtt.clientId));
-        strlcpy(mqtt.modbusTopic, json[F("mqtt")][F("modbusTopic")] | mqtt.modbusTopic, sizeof(mqtt.modbusTopic));
+        strlcpy(mqtt.resultTopic, json[F("mqtt")][F("resultTopic")] | mqtt.resultTopic, sizeof(mqtt.resultTopic));
+        mqtt.interval = json[F("mqtt")][F("interval")].as<int>() | mqtt.interval;
+        mqtt.port = json[F("mqtt")][F("port")].as<int>() | mqtt.port;
 
+        // modbus
+        modbus.baudrate = json[F("modbus")][F("baudrate")].as<int>() | modbus.baudrate;
+        modbus.serialType = json[F("modbus")][F("serialType")].as<int>() | modbus.serialType;
+
+        JsonArray mapArray = json["modbus"]["map"].as<JsonArray>();
+        for (JsonObject regMap : mapArray)
+        {
+          if (modbus.reg_count >= MB_MAX_REGISTERS)
+            return;
+
+          ModbusMapReg mb_reg;
+          char type[2] = "";
+          strlcpy(type, regMap[F("type")] | "", sizeof(type));
+          if (type[0] == 'H' | type[0] == 'C')
+          {
+            modbus.registers[modbus.reg_count].type = type[0];
+            modbus.registers[modbus.reg_count].addr = regMap["addr"].as<int>();
+            modbus.registers[modbus.reg_count].slave_id = regMap["sId"].as<int>();
+            modbus.reg_count += 1;
+          }
+        }
         return;
       }
+      else
+      {
+        Serial.print(F("Error: deserializeJson() returned "));
+        Serial.println(err.f_str());
+      }
     }
+
     Serial.println(F("Error reading configs"));
+    delay(6000);
+    ESP.restart();
   }
 
   void save(FS &fs)
   {
-    Serial.println(F("SAVE CONFIGS"));
+    StaticJsonDocument<JSON_SIZE> json;
+    File file = fs.open(F("/config.json"), "w+");
+    if (file)
+    {
+      Serial.println("FILEEEE");
+      DeserializationError err = deserializeJson(json, file);
+      if (!err)
+      {
+        Serial.println("NDSJNDSJ");
+        // wifi
+        json[F("wifi")][F("ssid")] = wifi.ssid;
+        json[F("wifi")][F("pass")] = wifi.pass;
+
+        // mqtt
+        json[F("mqtt")][F("server")] = mqtt.server;
+        json[F("mqtt")][F("clientId")] = mqtt.clientId;
+        json[F("mqtt")][F("resultTopic")] = mqtt.resultTopic;
+        json[F("mqtt")][F("interval")] = mqtt.interval;
+        json[F("mqtt")][F("port")] = mqtt.port;
+
+        Serial.print("SAVEEE   ");
+        Serial.println(modbus.baudrate);
+
+        // modbus
+        json[F("modbus")][F("baudrate")] = modbus.baudrate;
+        json[F("modbus")][F("serialType")] = modbus.serialType;
+        serializeJson(json, file);
+        file.close();
+        return;
+      }
+
+      file.close();
+    }
+    Serial.println(F("Error saving configs"));
   }
 } config;
 
