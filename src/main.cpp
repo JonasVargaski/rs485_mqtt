@@ -29,13 +29,13 @@ void mqttPublishHandle()
     {
       StaticJsonDocument<JSON_SIZE> json;
       JsonObject root = json.to<JsonObject>();
-      root["deviceId"] = hexToStr(ESP.getEfuseMac());
+      root["id"] = hexToStr(ESP.getEfuseMac());
 
       JsonArray result = root.createNestedArray("result");
       for (int i = 0; i < config.modbus.reg_count; i++)
       {
         JsonObject object = result.createNestedObject();
-        object["slave_id"] = config.modbus.registers[i].slave_id;
+        object["id"] = config.modbus.registers[i].slave_id;
         object["addr"] = config.modbus.registers[i].addr;
         object["type"] = String(config.modbus.registers[i].type);
         object["value"] = config.modbus.registers[i].type == 'H' ? config.modbus.registers[i].h_value : config.modbus.registers[i].c_value;
