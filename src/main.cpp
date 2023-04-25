@@ -75,6 +75,7 @@ void setup()
   modbus.master();
 
   mqtt.setServer(config.mqtt.server, config.mqtt.port);
+  mqtt.setBufferSize(JSON_SIZE);
   mqtt.setCallback([](char *topic, byte *message, unsigned int length) {});
 
   taskMqtt.interval(config.mqtt.interval);
