@@ -27,8 +27,6 @@ void mqttPublishHandle()
 {
   if (currentRegister >= config.modbus.reg_count)
   {
-    currentRegister = 0;
-
     StaticJsonDocument<JSON_SIZE> json;
     JsonObject root = json.to<JsonObject>();
     root["id"] = hexToStr(ESP.getEfuseMac());
@@ -37,7 +35,7 @@ void mqttPublishHandle()
     for (int i = 0; i < config.modbus.reg_count; i++)
     {
       JsonObject object = result.createNestedObject();
-      object["id"] = config.modbus.registers[i].slave_id;
+      object["sId"] = config.modbus.registers[i].slave_id;
       object["addr"] = config.modbus.registers[i].addr;
       object["type"] = String(config.modbus.registers[i].type);
       object["value"] = config.modbus.registers[i].type == 'H' ? config.modbus.registers[i].h_value : config.modbus.registers[i].c_value;
@@ -49,6 +47,7 @@ void mqttPublishHandle()
     Serial.println(config.mqtt.resultTopic);
     Serial.println(parsedJson);
     mqtt.publish(config.mqtt.resultTopic, parsedJson);
+    currentRegister = 0;
   }
 }
 

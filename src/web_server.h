@@ -53,7 +53,7 @@ void setupWebServer()
 
   webServer.on(
       "/upload", HTTP_POST, [](AsyncWebServerRequest *request)
-      { request->redirect("/"); },
+      { request->send(200); },
       [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final)
       {
         if (!index)
