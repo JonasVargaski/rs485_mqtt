@@ -1,21 +1,23 @@
 #include <Arduino.h>
+#include <WiFi.h>
 #include <SPIFFS.h>
 #include <ArduinoJson.h>
-#include <TaskScheduler.h>
+#include <SoftwareSerial.h>
 #include <ModbusRTU.h>
+#include "Ticker.h"
+#include <PubSubClient.h>
 
-#include "mqtt.h"
 #include "utils.h"
 #include "config.h"
-// #include "modbus.h"
 #include "ota.h"
 #include "web_server.h"
 #include "setup_wifi.h"
-#include <SoftwareSerial.h>
 
-Scheduler taskRunner;
 ModbusRTU modbus;
 SoftwareSerial softSerial(4, 5);
+
+WiFiClient wifi;
+PubSubClient mqtt(wifi);
 
 #define BUILTIN_BUTTON = 15;
 
@@ -25,71 +27,94 @@ void mqttPublishHandle()
 {
   if (currentRegister >= config.modbus.reg_count)
   {
-    if (WiFi.status() == WL_CONNECTED)
+    currentRegister = 0;
+
+    StaticJsonDocument<JSON_SIZE> json;
+    JsonObject root = json.to<JsonObject>();
+    root["id"] = hexToStr(ESP.getEfuseMac());
+
+    JsonArray result = root.createNestedArray("result");
+    for (int i = 0; i < config.modbus.reg_count; i++)
     {
-      StaticJsonDocument<JSON_SIZE> json;
-      JsonObject root = json.to<JsonObject>();
-      root["id"] = hexToStr(ESP.getEfuseMac());
-
-      JsonArray result = root.createNestedArray("result");
-      for (int i = 0; i < config.modbus.reg_count; i++)
-      {
-        JsonObject object = result.createNestedObject();
-        object["id"] = config.modbus.registers[i].slave_id;
-        object["addr"] = config.modbus.registers[i].addr;
-        object["type"] = String(config.modbus.registers[i].type);
-        object["value"] = config.modbus.registers[i].type == 'H' ? config.modbus.registers[i].h_value : config.modbus.registers[i].c_value;
-      }
-
-      char parsedJson[JSON_SIZE];
-      serializeJson(json, parsedJson);
-      Serial.println(parsedJson);
-      Serial.println("");
-      mqtt.publish(config.mqtt.resultTopic, parsedJson);
+      JsonObject object = result.createNestedObject();
+      object["id"] = config.modbus.registers[i].slave_id;
+      object["addr"] = config.modbus.registers[i].addr;
+      object["type"] = String(config.modbus.registers[i].type);
+      object["value"] = config.modbus.registers[i].type == 'H' ? config.modbus.registers[i].h_value : config.modbus.registers[i].c_value;
     }
 
-    currentRegister = 0;
+    char parsedJson[JSON_SIZE];
+    serializeJson(json, parsedJson);
+    Serial.print(F("\n[mqtt] Send to topic: "));
+    Serial.println(config.mqtt.resultTopic);
+    Serial.println(parsedJson);
+    mqtt.publish(config.mqtt.resultTopic, parsedJson);
   }
 }
 
-Task taskLED(500, TASK_FOREVER, &toggleBuiltInLed, &taskRunner, false);
-Task mqttPusblishTask(1000, TASK_FOREVER, &mqttPublishHandle, &taskRunner, false);
+Ticker taskLed(&toggleBuiltInLed, 400, 0, MILLIS);
+Ticker taskMqtt(&mqttPublishHandle, 2000, 0, MILLIS);
 
 void setup()
 {
   pinMode(LED_BUILTIN, OUTPUT);
   Serial.begin(115200, SERIAL_8N1);
-  Serial.println(F("Booting"));
+  delay(800);
+  Serial.println(F("Booting..."));
 
   if (SPIFFS.begin())
     config.load(SPIFFS);
   else
     Serial.println(F("SPIFFS error. Using default configs"));
 
+  setupWifi();
+  setupOTA();
+  setupWebServer();
+
   softSerial.begin(config.modbus.baudrate, (Config)config.modbus.serialType);
   modbus.begin(&softSerial);
   modbus.master();
 
-  setupWifi();
-  setupOTA();
-  setupWebServer();
-  // setupModbusMaster();
-  setupMqtt();
-  mqttPusblishTask.setInterval(config.mqtt.interval);
-  mqttPusblishTask.enableIfNot();
-  taskLED.enableIfNot();
+  mqtt.setServer(config.mqtt.server, config.mqtt.port);
+  mqtt.setCallback([](char *topic, byte *message, unsigned int length) {});
+
+  taskMqtt.interval(config.mqtt.interval);
+  taskLed.start();
+  taskMqtt.start();
 }
 
 void loop()
 {
   yield();
-  reconnectMqtt();
-
   modbus.task();
   mqtt.loop();
   ArduinoOTA.handle();
-  taskRunner.execute();
   dnsServer.processNextRequest();
+  taskLed.update();
+  taskMqtt.update();
+
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    if (!mqtt.connected())
+    {
+      taskLed.interval(550);
+      mqtt.connect(config.mqtt.clientId);
+
+      if (taskMqtt.state() == RUNNING)
+        taskMqtt.pause();
+    }
+    else
+    {
+      taskLed.interval(250);
+
+      if (taskMqtt.state() == PAUSED)
+        taskMqtt.resume();
+    }
+  }
+  else
+  {
+    taskLed.interval(1350);
+  }
 
   if (!modbus.slave() && config.modbus.reg_count > 0 && currentRegister <= config.modbus.reg_count)
   {

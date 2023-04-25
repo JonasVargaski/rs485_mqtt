@@ -103,43 +103,6 @@ struct AppConfig
     ESP.restart();
   }
 
-  void save(FS &fs)
-  {
-    StaticJsonDocument<JSON_SIZE> json;
-    File file = fs.open(F("/config.json"), "w+");
-    if (file)
-    {
-      Serial.println("FILEEEE");
-      DeserializationError err = deserializeJson(json, file);
-      if (!err)
-      {
-        Serial.println("NDSJNDSJ");
-        // wifi
-        json[F("wifi")][F("ssid")] = wifi.ssid;
-        json[F("wifi")][F("pass")] = wifi.pass;
-
-        // mqtt
-        json[F("mqtt")][F("server")] = mqtt.server;
-        json[F("mqtt")][F("clientId")] = mqtt.clientId;
-        json[F("mqtt")][F("resultTopic")] = mqtt.resultTopic;
-        json[F("mqtt")][F("interval")] = mqtt.interval;
-        json[F("mqtt")][F("port")] = mqtt.port;
-
-        Serial.print("SAVEEE   ");
-        Serial.println(modbus.baudrate);
-
-        // modbus
-        json[F("modbus")][F("baudrate")] = modbus.baudrate;
-        json[F("modbus")][F("serialType")] = modbus.serialType;
-        serializeJson(json, file);
-        file.close();
-        return;
-      }
-
-      file.close();
-    }
-    Serial.println(F("Error saving configs"));
-  }
 } config;
 
 #endif

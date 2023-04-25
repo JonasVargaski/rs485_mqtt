@@ -16,6 +16,7 @@
     "map": [
       { "type": "H", "sId": 1, "addr": 0 },
       { "type": "H", "sId": 1, "addr": 1 },
+      { "type": "H", "sId": 1, "addr": 100 },
       { "type": "C", "sId": 1, "addr": 0 }
     ]
   }
