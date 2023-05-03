@@ -3,18 +3,22 @@
 #include "Arduino.h"
 #include <SPIFFS.h>
 #include <ArduinoJson.h>
+#include <vector>
 #include "utils.h"
 
 const size_t JSON_SIZE = JSON_OBJECT_SIZE(50) + 2048;
-#define MB_MAX_REGISTERS 50
 
-struct ModbusMapReg
+struct Register
 {
-  char type = 'N';
-  int slave_id = 0;
-  uint16_t addr = 0;
-  uint16_t h_value = 0;
-  bool c_value = false;
+  unsigned int address;
+  u_int16_t value;
+  Register(int _address, int _value = -1) : address(_address), value(_value) {}
+};
+
+enum ModbusStatus
+{
+  MB_STATUS_IDLE,
+  MB_STATUS_PUBLISH,
 };
 
 struct AppConfig
@@ -31,9 +35,9 @@ struct AppConfig
 
   struct MqttConfig
   {
+    String topic = "c5d81ff2/device/" + hexToStr(ESP.getEfuseMac());
+    String clientId = randomUUID();
     char server[60] = "broker.mqtt-dashboard.com";
-    char clientId[60] = "";
-    char resultTopic[60] = "";
     unsigned int port = 1883;
     unsigned int interval = 1000;
   } mqtt;
@@ -42,8 +46,10 @@ struct AppConfig
   {
     int baudrate = 9600;
     int serialType = 3;
-    int reg_count = 0;
-    ModbusMapReg registers[MB_MAX_REGISTERS];
+    int slaveId = 1;
+    ModbusStatus status = MB_STATUS_IDLE;
+    std::vector<Register> holdingRegs;
+    std::vector<Register> coilRegs;
   } modbus;
 
   void load(FS &fs)
@@ -63,32 +69,20 @@ struct AppConfig
 
         // mqtt
         strlcpy(mqtt.server, json[F("mqtt")][F("server")] | mqtt.server, sizeof(mqtt.server));
-        strlcpy(mqtt.clientId, json[F("mqtt")][F("clientId")] | mqtt.clientId, sizeof(mqtt.clientId));
-        strlcpy(mqtt.resultTopic, json[F("mqtt")][F("resultTopic")] | mqtt.resultTopic, sizeof(mqtt.resultTopic));
-        mqtt.interval = json[F("mqtt")][F("interval")].as<int>() | mqtt.interval;
         mqtt.port = json[F("mqtt")][F("port")].as<int>() | mqtt.port;
+        mqtt.interval = json[F("mqtt")][F("interval")].as<int>() | mqtt.interval;
 
         // modbus
         modbus.baudrate = json[F("modbus")][F("baudrate")].as<int>() | modbus.baudrate;
         modbus.serialType = json[F("modbus")][F("serialType")].as<int>() | modbus.serialType;
 
-        JsonArray mapArray = json["modbus"]["map"].as<JsonArray>();
-        for (JsonObject regMap : mapArray)
+        // registers
+        for (int i = 0; i < 20; i++)
         {
-          if (modbus.reg_count >= MB_MAX_REGISTERS)
-            return;
-
-          ModbusMapReg mb_reg;
-          char type[2] = "";
-          strlcpy(type, regMap[F("type")] | "", sizeof(type));
-          if (type[0] == 'H' | type[0] == 'C')
-          {
-            modbus.registers[modbus.reg_count].type = type[0];
-            modbus.registers[modbus.reg_count].addr = regMap["addr"].as<int>();
-            modbus.registers[modbus.reg_count].slave_id = regMap["sId"].as<int>();
-            modbus.reg_count += 1;
-          }
+          modbus.holdingRegs.push_back(Register(i));
+          modbus.coilRegs.push_back(Register(i));
         }
+
         return;
       }
       else

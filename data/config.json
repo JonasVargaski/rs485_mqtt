@@ -5,9 +5,9 @@
   },
   "mqtt": {
     "server": "broker.mqtt-dashboard.com",
-    "clientId": "esp-32-mtqq-web-client-uniqude",
-    "resultTopic": "esp-32-mtqq-web-client-uniqdue",
-    "interval": 900,
+    "clientId": "hsaushddddsu",
+    "resultTopic": "rs485mqtt-oeliton",
+    "interval": 1000,
     "port": 1883
   },
   "modbus": {
@@ -18,25 +18,9 @@
       { "type": "H", "sId": 1, "addr": 1 },
       { "type": "H", "sId": 1, "addr": 2 },
       { "type": "H", "sId": 1, "addr": 3 },
-      { "type": "H", "sId": 1, "addr": 4 },
-      { "type": "H", "sId": 1, "addr": 5 },
-      { "type": "H", "sId": 1, "addr": 6 },
-      { "type": "H", "sId": 1, "addr": 7 },
-      { "type": "H", "sId": 1, "addr": 8 },
-      { "type": "H", "sId": 1, "addr": 9 },
-      { "type": "H", "sId": 1, "addr": 10 },
-      { "type": "H", "sId": 1, "addr": 11 },
-      { "type": "H", "sId": 1, "addr": 12 },
-      { "type": "H", "sId": 1, "addr": 13 },
-      { "type": "H", "sId": 1, "addr": 14 },
-      { "type": "H", "sId": 1, "addr": 15 },
-      { "type": "H", "sId": 1, "addr": 16 },
-      { "type": "H", "sId": 1, "addr": 17 },
-      { "type": "H", "sId": 1, "addr": 18 },
-      { "type": "H", "sId": 1, "addr": 19 },
-      { "type": "H", "sId": 1, "addr": 20 },
-      { "type": "H", "sId": 1, "addr": 345 },
-      { "type": "C", "sId": 1, "addr": 0 }
+      { "type": "H", "sId": 1, "addr": 78 },
+      { "type": "H", "sId": 1, "addr": 24 },
+      { "type": "C", "sId": 1, "addr": 212 }
     ]
   }
 }
