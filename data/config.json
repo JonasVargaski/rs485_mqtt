@@ -5,22 +5,11 @@
   },
   "mqtt": {
     "server": "broker.mqtt-dashboard.com",
-    "clientId": "hsaushddddsu",
-    "resultTopic": "rs485mqtt-oeliton",
-    "interval": 1000,
-    "port": 1883
+    "port": 1883,
+    "interval": 1000
   },
   "modbus": {
     "baudrate": 9600,
-    "serialType": 3,
-    "map": [
-      { "type": "H", "sId": 1, "addr": 0 },
-      { "type": "H", "sId": 1, "addr": 1 },
-      { "type": "H", "sId": 1, "addr": 2 },
-      { "type": "H", "sId": 1, "addr": 3 },
-      { "type": "H", "sId": 1, "addr": 78 },
-      { "type": "H", "sId": 1, "addr": 24 },
-      { "type": "C", "sId": 1, "addr": 212 }
-    ]
+    "serialType": 3
   }
 }

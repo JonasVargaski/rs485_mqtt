@@ -80,10 +80,10 @@ struct AppConfig
 
         // registers
         for (int i = 0; i < 10; i++)
-        {
           modbus.holdingRegs.push_back(Register(i));
+
+        for (int i = 0; i < 27; i++)
           modbus.coilRegs.push_back(Register(i));
-        }
 
         return;
       }
