@@ -6,6 +6,7 @@
 #include <vector>
 #include "utils.h"
 
+#define BUTTON_BUILTIN 0
 const size_t JSON_SIZE = JSON_OBJECT_SIZE(50) + 2048;
 
 struct Register
@@ -31,6 +32,7 @@ struct AppConfig
     char pass[30] = "";
     IPAddress apIP = IPAddress(192, 168, 4, 1);
     IPAddress netMsk = IPAddress(255, 255, 255, 0);
+    bool enableWebServer = !digitalRead(BUTTON_BUILTIN);
   } wifi;
 
   struct MqttConfig
@@ -77,7 +79,7 @@ struct AppConfig
         modbus.serialType = json[F("modbus")][F("serialType")].as<int>() | modbus.serialType;
 
         // registers
-        for (int i = 0; i < 20; i++)
+        for (int i = 0; i < 10; i++)
         {
           modbus.holdingRegs.push_back(Register(i));
           modbus.coilRegs.push_back(Register(i));

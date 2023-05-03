@@ -3,7 +3,6 @@
 #include <SPIFFS.h>
 #include <ArduinoJson.h>
 #include <SoftwareSerial.h>
-// #include <ModbusRTU.h>
 #include "Ticker.h"
 #include <PubSubClient.h>
 #include <ModbusMaster.h>
@@ -12,15 +11,12 @@
 #include "config.h"
 #include "ota.h"
 #include "web_server.h"
-#include "setup_wifi.h"
 
 ModbusMaster modbus;
 SoftwareSerial softSerial(4, 5);
 
 WiFiClient wifi;
 PubSubClient mqtt(wifi);
-
-#define BUILTIN_BUTTON = 15;
 
 int currentRegister = 0;
 
@@ -31,6 +27,7 @@ void mqttPublishHandle()
     StaticJsonDocument<JSON_SIZE> json;
     JsonObject root = json.to<JsonObject>();
     root["id"] = hexToStr(ESP.getEfuseMac());
+    root["rssi"] = WiFi.RSSI();
 
     JsonArray holding = root.createNestedArray("holding");
     for (int i = 0; i < config.modbus.holdingRegs.size(); i++)
@@ -55,19 +52,30 @@ Ticker taskMqtt(&mqttPublishHandle, 2000, 0, MILLIS);
 
 void setup()
 {
+  delay(300);
   pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(BUTTON_BUILTIN, INPUT_PULLUP);
   Serial.begin(115200, SERIAL_8N1);
-  delay(800);
   Serial.println(F("Booting..."));
+  delay(2000);
 
   if (SPIFFS.begin())
     config.load(SPIFFS);
   else
     Serial.println(F("SPIFFS error. Using default configs"));
 
-  setupWifi();
+  Serial.print(F("Connecting to ssid: "));
+  Serial.println(config.wifi.ssid);
+
+  WiFi.mode(WIFI_STA);
+  WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
+  WiFi.setHostname(config.deviceId.c_str());
+  WiFi.begin(config.wifi.ssid, config.wifi.pass);
+
   setupOTA();
-  setupWebServer();
+
+  if (config.wifi.enableWebServer)
+    setupWebServer();
 
   softSerial.begin(config.modbus.baudrate, (Config)config.modbus.serialType);
   modbus.begin(config.modbus.slaveId, softSerial);
@@ -86,9 +94,11 @@ void loop()
   yield();
   mqtt.loop();
   ArduinoOTA.handle();
-  dnsServer.processNextRequest();
   taskLed.update();
   taskMqtt.update();
+
+  if (config.wifi.enableWebServer)
+    dnsServer.processNextRequest();
 
   if (WiFi.status() == WL_CONNECTED)
   {

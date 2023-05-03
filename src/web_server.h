@@ -38,6 +38,11 @@ public:
 
 void setupWebServer()
 {
+  Serial.print(F("\nEnable web server on: "));
+  Serial.println(config.wifi.apIP.toString());
+
+  WiFi.softAPConfig(config.wifi.apIP, config.wifi.apIP, config.wifi.netMsk);
+  WiFi.softAP(config.deviceId.c_str(), hexToStr(ESP.getEfuseMac()));
 
   dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
   dnsServer.start(53, "*", config.wifi.apIP);
