@@ -79,10 +79,10 @@ struct AppConfig
         modbus.serialType = json[F("modbus")][F("serialType")].as<int>() | modbus.serialType;
 
         // registers
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i <= 10; i++)
           modbus.holdingRegs.push_back(Register(i));
 
-        for (int i = 0; i < 27; i++)
+        for (int i = 0; i <= 27; i++)
           modbus.coilRegs.push_back(Register(i));
 
         return;
