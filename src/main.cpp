@@ -29,13 +29,10 @@ void mqttPublishHandle()
     root["id"] = hexToStr(ESP.getEfuseMac());
     root["rssi"] = WiFi.RSSI();
 
-    JsonArray holding = root.createNestedArray("holding");
-    for (int i = 0; i < config.modbus.holdingRegs.size(); i++)
-      holding.add<uint16_t>(config.modbus.holdingRegs[i].value);
+    JsonArray values = root.createNestedArray("values");
 
-    JsonArray coil = root.createNestedArray("coil");
-    for (int i = 0; i < config.modbus.coilRegs.size(); i++)
-      coil.add<bool>(config.modbus.coilRegs[i].value == 1 ? true : false);
+    for (int i = 0; i < config.modbus.holdingRegs.size(); i++)
+      values.add<uint16_t>(config.modbus.holdingRegs[i].value);
 
     char parsedJson[JSON_SIZE];
     serializeJson(json, parsedJson);
@@ -121,31 +118,27 @@ void loop()
   else
   {
     taskLed.interval(1350);
+    if (taskMqtt.state() == RUNNING)
+      taskMqtt.pause();
   }
 
   if (config.modbus.status == MB_STATUS_IDLE)
   {
-    if (config.modbus.holdingRegs.size() > 0)
-    {
-      modbus.clearResponseBuffer();
-      int result = modbus.readHoldingRegisters(0, config.modbus.holdingRegs.size());
-      if (result == modbus.ku8MBSuccess)
-      {
-        config.modbus.status = MB_STATUS_PUBLISH;
-        for (int i = 0; i < config.modbus.holdingRegs.size(); i++)
-          config.modbus.holdingRegs[i].value = modbus.getResponseBuffer(i);
-      }
-    }
+    int arraySize = config.modbus.holdingRegs.size();
+    int partAmount = (arraySize + config.modbus.recordsPerRead - 1) / config.modbus.recordsPerRead;
 
-    if (config.modbus.coilRegs.size() > 0)
+    for (int i = 0; i < partAmount; i++)
     {
+      int startIndex = i * config.modbus.recordsPerRead;
+      int endIndex = min((i + 1) * config.modbus.recordsPerRead - 1, arraySize - 1);
+
       modbus.clearResponseBuffer();
-      int result = modbus.readCoils(0, config.modbus.coilRegs.size());
+      int result = modbus.readHoldingRegisters(startIndex, endIndex);
       if (result == modbus.ku8MBSuccess)
       {
         config.modbus.status = MB_STATUS_PUBLISH;
-        for (int i = 0; i < config.modbus.coilRegs.size(); i++)
-          config.modbus.coilRegs[i].value = modbus.getResponseBuffer(i);
+        for (int j = startIndex; j <= endIndex; j++)
+          config.modbus.holdingRegs[j].value = modbus.getResponseBuffer(j - startIndex);
       }
     }
   }
