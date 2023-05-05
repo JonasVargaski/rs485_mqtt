@@ -79,7 +79,7 @@ struct AppConfig
         modbus.baudrate = json[F("modbus")][F("baudrate")].as<int>() | modbus.baudrate;
         modbus.serialType = json[F("modbus")][F("serialType")].as<int>() | modbus.serialType;
 
-        for (int i = 0; i <= 12; i++)
+        for (int i = 0; i <= 11; i++)
           modbus.holdingRegs.push_back(Register(i));
 
         for (int i = 0; i <= 28; i++)
