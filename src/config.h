@@ -9,13 +9,6 @@
 #define BUTTON_BUILTIN 0
 const size_t JSON_SIZE = JSON_OBJECT_SIZE(50) + 2048;
 
-struct Register
-{
-  unsigned int address;
-  u_int16_t value;
-  Register(int _address, int _value = -1) : address(_address), value(_value) {}
-};
-
 enum ModbusStatus
 {
   MB_STATUS_IDLE,
@@ -51,8 +44,8 @@ struct AppConfig
     int slaveId = 1;
     int recordsPerRead = 35;
     ModbusStatus status = MB_STATUS_IDLE;
-    std::vector<Register> holdingRegs;
-    std::vector<Register> coilRegs;
+    std::vector<u_int16_t> holdingRegs;
+    std::vector<u_int16_t> coilRegs;
   } modbus;
 
   void load(FS &fs)
@@ -78,12 +71,8 @@ struct AppConfig
         // modbus
         modbus.baudrate = json[F("modbus")][F("baudrate")].as<int>() | modbus.baudrate;
         modbus.serialType = json[F("modbus")][F("serialType")].as<int>() | modbus.serialType;
-
-        for (int i = 0; i <= 11; i++)
-          modbus.holdingRegs.push_back(Register(i));
-
-        for (int i = 0; i <= 28; i++)
-          modbus.coilRegs.push_back(Register(i));
+        modbus.holdingRegs.resize(json[F("modbus")][F("holdings")].as<int>() | 0);
+        modbus.coilRegs.resize(json[F("modbus")][F("coils")].as<int>() | 0);
 
         return;
       }

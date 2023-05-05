@@ -29,11 +29,11 @@ void mqttPublishHandle()
 
     JsonArray holding = root.createNestedArray("holding");
     for (int i = 0; i < config.modbus.holdingRegs.size(); i++)
-      holding.add<uint16_t>(config.modbus.holdingRegs[i].value);
+      holding.add<uint16_t>(config.modbus.holdingRegs[i]);
 
     JsonArray coil = root.createNestedArray("coil");
     for (int i = 0; i < config.modbus.coilRegs.size(); i++)
-      coil.add<byte>(config.modbus.coilRegs[i].value);
+      coil.add<byte>(config.modbus.coilRegs[i]);
 
     char parsedJson[JSON_SIZE];
     serializeJson(json, parsedJson);
@@ -147,7 +147,7 @@ void loop()
         {
           config.modbus.status = MB_STATUS_PUBLISH;
           for (int j = startIndex; j <= endIndex; j++)
-            config.modbus.holdingRegs[j].value = modbus.getResponseBuffer(j - startIndex);
+            config.modbus.holdingRegs[j] = modbus.getResponseBuffer(j - startIndex);
         }
       }
     }
@@ -170,7 +170,7 @@ void loop()
           for (int j = startIndex; j <= endIndex; j++)
           {
             int bufferIndex = j - startIndex;
-            config.modbus.coilRegs[j].value = (modbus.getResponseBuffer(bufferIndex / 16) >> (bufferIndex % 16)) & 0x01;
+            config.modbus.coilRegs[j] = (modbus.getResponseBuffer(bufferIndex / 16) >> (bufferIndex % 16)) & 0x01;
           }
         }
       }
