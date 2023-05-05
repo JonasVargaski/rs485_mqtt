@@ -8,7 +8,6 @@
 
 #define BUTTON_BUILTIN 0
 const size_t JSON_SIZE = JSON_OBJECT_SIZE(50) + 2048;
-#define MODBUS_READ_COUNT 95
 
 struct Register
 {
@@ -53,6 +52,7 @@ struct AppConfig
     int recordsPerRead = 35;
     ModbusStatus status = MB_STATUS_IDLE;
     std::vector<Register> holdingRegs;
+    std::vector<Register> coilRegs;
   } modbus;
 
   void load(FS &fs)
@@ -79,8 +79,11 @@ struct AppConfig
         modbus.baudrate = json[F("modbus")][F("baudrate")].as<int>() | modbus.baudrate;
         modbus.serialType = json[F("modbus")][F("serialType")].as<int>() | modbus.serialType;
 
-        for (int i = 0; i <= MODBUS_READ_COUNT; i++)
+        for (int i = 0; i <= 12; i++)
           modbus.holdingRegs.push_back(Register(i));
+
+        for (int i = 0; i <= 28; i++)
+          modbus.coilRegs.push_back(Register(i));
 
         return;
       }

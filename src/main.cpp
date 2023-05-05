@@ -18,8 +18,6 @@ SoftwareSerial softSerial(4, 5);
 WiFiClient wifi;
 PubSubClient mqtt(wifi);
 
-int currentRegister = 0;
-
 void mqttPublishHandle()
 {
   if (config.modbus.status == MB_STATUS_PUBLISH)
@@ -29,10 +27,13 @@ void mqttPublishHandle()
     root["id"] = hexToStr(ESP.getEfuseMac());
     root["rssi"] = WiFi.RSSI();
 
-    JsonArray values = root.createNestedArray("values");
-
+    JsonArray holding = root.createNestedArray("holding");
     for (int i = 0; i < config.modbus.holdingRegs.size(); i++)
-      values.add<uint16_t>(config.modbus.holdingRegs[i].value);
+      holding.add<uint16_t>(config.modbus.holdingRegs[i].value);
+
+    JsonArray coil = root.createNestedArray("coil");
+    for (int i = 0; i < config.modbus.coilRegs.size(); i++)
+      coil.add<byte>(config.modbus.coilRegs[i].value);
 
     char parsedJson[JSON_SIZE];
     serializeJson(json, parsedJson);
@@ -124,21 +125,54 @@ void loop()
 
   if (config.modbus.status == MB_STATUS_IDLE)
   {
-    int arraySize = config.modbus.holdingRegs.size();
-    int partAmount = (arraySize + config.modbus.recordsPerRead - 1) / config.modbus.recordsPerRead;
+    uint8_t result;
+    int arraySize;
+    int partAmount;
+    int startIndex;
+    int endIndex;
 
-    for (int i = 0; i < partAmount; i++)
+    if (config.modbus.holdingRegs.size() > 0)
     {
-      int startIndex = i * config.modbus.recordsPerRead;
-      int endIndex = min((i + 1) * config.modbus.recordsPerRead - 1, arraySize - 1);
+      arraySize = config.modbus.holdingRegs.size();
+      partAmount = (arraySize + config.modbus.recordsPerRead - 1) / config.modbus.recordsPerRead;
 
-      modbus.clearResponseBuffer();
-      int result = modbus.readHoldingRegisters(startIndex, endIndex);
-      if (result == modbus.ku8MBSuccess)
+      for (int i = 0; i < partAmount; i++)
       {
-        config.modbus.status = MB_STATUS_PUBLISH;
-        for (int j = startIndex; j <= endIndex; j++)
-          config.modbus.holdingRegs[j].value = modbus.getResponseBuffer(j - startIndex);
+        startIndex = i * config.modbus.recordsPerRead;
+        endIndex = min((i + 1) * config.modbus.recordsPerRead - 1, arraySize - 1);
+
+        modbus.clearResponseBuffer();
+        result = modbus.readHoldingRegisters(startIndex, endIndex);
+        if (result == modbus.ku8MBSuccess)
+        {
+          config.modbus.status = MB_STATUS_PUBLISH;
+          for (int j = startIndex; j <= endIndex; j++)
+            config.modbus.holdingRegs[j].value = modbus.getResponseBuffer(j - startIndex);
+        }
+      }
+    }
+
+    if (config.modbus.coilRegs.size() > 0)
+    {
+      arraySize = config.modbus.coilRegs.size();
+      partAmount = (arraySize + config.modbus.recordsPerRead - 1) / config.modbus.recordsPerRead;
+
+      for (int i = 0; i < partAmount; i++)
+      {
+        startIndex = i * config.modbus.recordsPerRead;
+        endIndex = min((i + 1) * config.modbus.recordsPerRead - 1, arraySize - 1);
+
+        modbus.clearResponseBuffer();
+        result = modbus.readCoils(startIndex, endIndex);
+        if (result == modbus.ku8MBSuccess)
+        {
+          config.modbus.status = MB_STATUS_PUBLISH;
+          for (int j = startIndex; j <= endIndex; j++)
+          {
+            int bufferIndex = j - startIndex;
+            config.modbus.coilRegs[j].value = (modbus.getResponseBuffer(bufferIndex / 16) >> (bufferIndex % 16)) & 0x01;
+          }
+        }
       }
     }
   }
