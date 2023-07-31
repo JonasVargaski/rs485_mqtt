@@ -6,8 +6,12 @@
 #include <vector>
 #include "utils.h"
 
-#define BUTTON_BUILTIN 0
 const size_t JSON_SIZE = JSON_OBJECT_SIZE(50) + 2048;
+
+#define LED_COLOR_OK 0, 0, 255, 0              // VERDE
+#define LED_COLOR_MODBUS_ERROR 0, 0, 0, 255    // AZUL
+#define LED_COLOR_SERVER_ERROR 0, 214, 37, 152 // ROSA
+#define LED_COLOR_WIFI_ERROR 0, 255, 0, 0      // VERMELHO
 
 enum ModbusStatus
 {
@@ -25,7 +29,7 @@ struct AppConfig
     char pass[30] = "";
     IPAddress apIP = IPAddress(192, 168, 4, 1);
     IPAddress netMsk = IPAddress(255, 255, 255, 0);
-    bool enableWebServer = !digitalRead(BUTTON_BUILTIN);
+    bool enableWebServer = false;
   } wifi;
 
   struct MqttConfig
@@ -40,7 +44,6 @@ struct AppConfig
   struct ModbusConfig
   {
     int baudrate = 9600;
-    int serialType = 3;
     int slaveId = 1;
     int recordsPerRead = 35;
     ModbusStatus status = MB_STATUS_IDLE;
@@ -70,7 +73,6 @@ struct AppConfig
 
         // modbus
         modbus.baudrate = json[F("modbus")][F("baudrate")].as<int>() | modbus.baudrate;
-        modbus.serialType = json[F("modbus")][F("serialType")].as<int>() | modbus.serialType;
         modbus.holdingRegs.resize(json[F("modbus")][F("holdings")].as<int>() | 0);
         modbus.coilRegs.resize(json[F("modbus")][F("coils")].as<int>() | 0);
 

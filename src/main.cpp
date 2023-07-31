@@ -2,57 +2,48 @@
 #include <WiFi.h>
 #include <SPIFFS.h>
 #include <ArduinoJson.h>
-#include <SoftwareSerial.h>
+#include <HardwareSerial.h>
 #include "Ticker.h"
 #include <PubSubClient.h>
 #include <ModbusMaster.h>
+#include "Freenove_WS2812_Lib_for_ESP32.h"
 
+#include "pin_config.h"
 #include "utils.h"
 #include "config.h"
-#include "ota.h"
 #include "web_server.h"
 
+void mqttPublishHandle(void);
+
 ModbusMaster modbus;
-SoftwareSerial softSerial(4, 5);
+HardwareSerial Serial485(2);
 
 WiFiClient wifi;
 PubSubClient mqtt(wifi);
 
-void mqttPublishHandle()
-{
-  if (config.modbus.status == MB_STATUS_PUBLISH)
-  {
-    StaticJsonDocument<JSON_SIZE> json;
-    JsonObject root = json.to<JsonObject>();
-    root["id"] = hexToStr(ESP.getEfuseMac());
-    root["rssi"] = WiFi.RSSI();
+Freenove_ESP32_WS2812 strip = Freenove_ESP32_WS2812(LEDS_COUNT, WS2812_PIN, CHANNEL, TYPE_GRB);
 
-    JsonArray holding = root.createNestedArray("holding");
-    for (int i = 0; i < config.modbus.holdingRegs.size(); i++)
-      holding.add<uint16_t>(config.modbus.holdingRegs[i]);
-
-    JsonArray coil = root.createNestedArray("coil");
-    for (int i = 0; i < config.modbus.coilRegs.size(); i++)
-      coil.add<byte>(config.modbus.coilRegs[i]);
-
-    char parsedJson[JSON_SIZE];
-    serializeJson(json, parsedJson);
-    Serial.print(F("\n[mqtt] Send to topic: "));
-    Serial.println(config.mqtt.topic);
-    Serial.println(parsedJson);
-    mqtt.publish(config.mqtt.topic.c_str(), parsedJson);
-    config.modbus.status = MB_STATUS_IDLE;
-  }
-}
-
-Ticker taskLed(&toggleBuiltInLed, 400, 0, MILLIS);
 Ticker taskMqtt(&mqttPublishHandle, 2000, 0, MILLIS);
 
 void setup()
 {
-  delay(300);
-  pinMode(LED_BUILTIN, OUTPUT);
-  pinMode(BUTTON_BUILTIN, INPUT_PULLUP);
+  pinMode(RS485_EN_PIN, OUTPUT);
+  digitalWrite(RS485_EN_PIN, HIGH);
+
+  pinMode(RS485_SE_PIN, OUTPUT);
+  digitalWrite(RS485_SE_PIN, HIGH);
+
+  pinMode(PIN_5V_EN, OUTPUT);
+  digitalWrite(PIN_5V_EN, HIGH);
+
+  pinMode(CAN_SE_PIN, OUTPUT);
+  digitalWrite(CAN_SE_PIN, LOW);
+
+  strip.begin();
+  strip.setBrightness(10);
+  strip.setLedColor(0, 0, 0, 0); // OFF
+
+  delay(350);
   Serial.begin(115200, SERIAL_8N1);
   Serial.println(F("Booting..."));
   delay(2000);
@@ -70,20 +61,17 @@ void setup()
   WiFi.setHostname(config.deviceId.c_str());
   WiFi.begin(config.wifi.ssid, config.wifi.pass);
 
-  setupOTA();
-
   if (config.wifi.enableWebServer)
     setupWebServer();
 
-  softSerial.begin(config.modbus.baudrate, (Config)config.modbus.serialType);
-  modbus.begin(config.modbus.slaveId, softSerial);
+  Serial485.begin(config.modbus.baudrate, SERIAL_8E1, RS485_RX_PIN, RS485_TX_PIN);
+  modbus.begin(config.modbus.slaveId, Serial485);
 
   mqtt.setServer(config.mqtt.server, config.mqtt.port);
   mqtt.setBufferSize(JSON_SIZE);
   mqtt.setCallback([](char *topic, byte *message, unsigned int length) {});
 
   taskMqtt.interval(config.mqtt.interval);
-  taskLed.start();
   taskMqtt.start();
 }
 
@@ -91,8 +79,6 @@ void loop()
 {
   yield();
   mqtt.loop();
-  ArduinoOTA.handle();
-  taskLed.update();
   taskMqtt.update();
 
   if (config.wifi.enableWebServer)
@@ -102,28 +88,23 @@ void loop()
   {
     if (!mqtt.connected())
     {
-      taskLed.interval(550);
+      strip.setLedColor(LED_COLOR_SERVER_ERROR);
       mqtt.connect(config.mqtt.clientId.c_str());
 
       if (taskMqtt.state() == RUNNING)
         taskMqtt.pause();
     }
-    else
-    {
-      taskLed.interval(250);
-
-      if (taskMqtt.state() == PAUSED)
-        taskMqtt.resume();
-    }
+    else if (taskMqtt.state() == PAUSED)
+      taskMqtt.resume();
   }
   else
   {
-    taskLed.interval(1350);
+    strip.setLedColor(LED_COLOR_WIFI_ERROR);
     if (taskMqtt.state() == RUNNING)
       taskMqtt.pause();
   }
 
-  if (config.modbus.status == MB_STATUS_IDLE)
+  if (WiFi.status() == WL_CONNECTED && config.modbus.status == MB_STATUS_IDLE)
   {
     uint8_t result;
     int arraySize;
@@ -149,6 +130,8 @@ void loop()
           for (int j = startIndex; j <= endIndex; j++)
             config.modbus.holdingRegs[j] = modbus.getResponseBuffer(j - startIndex);
         }
+        else
+          strip.setLedColor(LED_COLOR_MODBUS_ERROR);
       }
     }
 
@@ -173,7 +156,46 @@ void loop()
             config.modbus.coilRegs[j] = (modbus.getResponseBuffer(bufferIndex / 16) >> (bufferIndex % 16)) & 0x01;
           }
         }
+        else
+          strip.setLedColor(LED_COLOR_MODBUS_ERROR);
       }
+    }
+  }
+}
+
+void mqttPublishHandle()
+{
+  if (config.modbus.status == MB_STATUS_PUBLISH)
+  {
+    StaticJsonDocument<JSON_SIZE> json;
+    JsonObject root = json.to<JsonObject>();
+    root["id"] = hexToStr(ESP.getEfuseMac());
+    root["rssi"] = WiFi.RSSI();
+
+    JsonArray holding = root.createNestedArray("holding");
+    for (int i = 0; i < config.modbus.holdingRegs.size(); i++)
+      holding.add<uint16_t>(config.modbus.holdingRegs[i]);
+
+    JsonArray coil = root.createNestedArray("coil");
+    for (int i = 0; i < config.modbus.coilRegs.size(); i++)
+      coil.add<byte>(config.modbus.coilRegs[i]);
+
+    char parsedJson[JSON_SIZE];
+    serializeJson(json, parsedJson);
+    Serial.print(F("\n[mqtt] Send to topic: "));
+    Serial.println(config.mqtt.topic);
+    Serial.println(parsedJson);
+
+    bool publish_ok = mqtt.publish(config.mqtt.topic.c_str(), parsedJson);
+
+    if (publish_ok)
+    {
+      config.modbus.status = MB_STATUS_IDLE;
+      strip.setLedColor(LED_COLOR_OK);
+    }
+    else
+    {
+      strip.setLedColor(LED_COLOR_SERVER_ERROR);
     }
   }
 }
