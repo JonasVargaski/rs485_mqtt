@@ -14,7 +14,9 @@
 
 Para entrar no modo de configuração, manter pressionado o botão "BOT" na placa até o led indicador ficar na cor `AMARELA`;
 Após, com o smartphone, procurar a rede wifi com nome 485Gateway-XXXXX;
-Conectar a está rede, a senha da rede é o código do dispositivo, encontrado no nome da rede após o prefixo 485Gateway-; EX: `485Gateway-BC02F3D1`, a senha será `BC02F3D1`;
+Conectar a está rede, a senha da rede é o código do dispositivo, encontrado no nome da rede após o prefixo 485Gateway-;
+
+EX: `485Gateway-BC02F3D1`, a senha será `BC02F3D1`;
 
 Alterar somente os campos:
 
