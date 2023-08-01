@@ -21,7 +21,7 @@ enum ModbusStatus
 
 struct AppConfig
 {
-  String deviceId = "Mqtt485Gateway-" + hexToStr(ESP.getEfuseMac());
+  String deviceId = "485Gateway-" + hexToStr(ESP.getEfuseMac());
 
   struct WifiConfig
   {
@@ -29,7 +29,7 @@ struct AppConfig
     char pass[30] = "";
     IPAddress apIP = IPAddress(192, 168, 4, 1);
     IPAddress netMsk = IPAddress(255, 255, 255, 0);
-    bool enableWebServer = false;
+    bool enableWebServer = true;
   } wifi;
 
   struct MqttConfig
@@ -77,6 +77,31 @@ struct AppConfig
         modbus.coilRegs.resize(json[F("modbus")][F("coils")].as<int>() | 0);
 
         return;
+      }
+      else
+      {
+        Serial.print(F("Error: deserializeJson() returned "));
+        Serial.println(err.f_str());
+      }
+    }
+
+    Serial.println(F("Error reading configs"));
+    delay(6000);
+    ESP.restart();
+  }
+
+  void save(FS &fs)
+  {
+    if (fs.exists((F("/config.json"))))
+    {
+      File file = fs.open(F("/config.json"), "r");
+      StaticJsonDocument<JSON_SIZE> json;
+      DeserializationError err = deserializeJson(json, file);
+      file.close();
+
+      if (!err)
+      {
+        Serial.println("SAVEEE");
       }
       else
       {

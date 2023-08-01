@@ -4,6 +4,7 @@
 #include <DNSServer.h>
 #include <AsyncTCP.h>
 #include "ArduinoJson.h"
+#include <SPIFFS.h>
 #include <ESPAsyncWebServer.h>
 #include "AsyncJson.h"
 #include "config.h"
@@ -56,33 +57,27 @@ void setupWebServer()
     request->send(200,F("application/json"), file.readString());
       file.close(); });
 
-  webServer.on(
-      "/upload", HTTP_POST, [](AsyncWebServerRequest *request)
-      { request->send(200); },
-      [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final)
-      {
-        if (!index)
-        {
-          if (filename != "config.json")
-          {
-            Serial.println(F("Invalid file name"));
-            return;
-          }
-
-          Serial.printf("UploadStart: %s\n", filename.c_str());
-          SPIFFS.remove(F("/config.json"));
-          File file = SPIFFS.open(F("/config.json"), "w");
-          if (file)
-            file.write(data, len);
-
-          if (final)
-          {
-            Serial.printf("UploadEnd: %s, %u B\n", F("/config.json"), index + len);
-            file.close();
-            ESP.restart();
-          }
+  webServer.on("/", HTTP_POST, [](AsyncWebServerRequest *request)
+               {
+      int params = request->params();
+      for (int i=0; i<params; i++){
+        AsyncWebParameter* p = request->getParam(i);
+        if(p->isPost()){
+          if (p->name() == "wifi.ssid")
+            strlcpy(config.wifi.ssid, p->value().c_str(), sizeof(config.wifi.ssid));
+          if (p->name() == "wifi.pass")
+            strlcpy(config.wifi.pass, p->value().c_str(), sizeof(config.wifi.pass));
+          if (p->name() == "mqtt.server")
+            strlcpy(config.mqtt.server, p->value().c_str(), sizeof(config.mqtt.server));
+          if (p->name() == "mqtt.port")
+            config.mqtt.port = p->value().toInt();
+          if (p->name() == "mqtt.interval")
+            config.mqtt.interval = p->value().toInt();
         }
-      });
+        config.save(SPIFFS); 
+      }
+      request->send(200);
+      ESP.restart(); });
 
   webServer.addHandler(new HomeRequestHandler()).setFilter(ON_AP_FILTER);
   webServer.onNotFound(notFound);
