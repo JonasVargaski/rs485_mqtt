@@ -17,6 +17,7 @@ Após, com o smartphone, procurar a rede wifi com nome 485Gateway-XXXXX;
 Conectar a está rede, a senha da rede é o código do dispositivo, encontrado no nome da rede após o prefixo 485Gateway-; EX: `485Gateway-BC02F3D1`, a senha será `BC02F3D1`;
 
 Alterar somente os campos:
+
 `wifi.ssid` nome da rede a qual deseja se conectar.
 
 `wifi.pass` senha da rede a qual deseja se conectar. (deixar em branco caso nao possua).
