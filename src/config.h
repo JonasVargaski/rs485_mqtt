@@ -8,10 +8,11 @@
 
 const size_t JSON_SIZE = JSON_OBJECT_SIZE(50) + 2048;
 
-#define LED_COLOR_OK 0, 0, 255, 0              // VERDE
-#define LED_COLOR_MODBUS_ERROR 0, 0, 0, 255    // AZUL
-#define LED_COLOR_SERVER_ERROR 0, 214, 37, 152 // ROSA
-#define LED_COLOR_WIFI_ERROR 0, 255, 0, 0      // VERMELHO
+#define LED_COLOR_OK 0, 0, 255, 0                   // VERDE
+#define LED_COLOR_MODBUS_ERROR 0, 0, 0, 255         // AZUL
+#define LED_COLOR_SERVER_ERROR 0, 214, 37, 152      // ROSA
+#define LED_COLOR_WIFI_ERROR 0, 255, 0, 0           // VERMELHO
+#define LED_COLOR_CONFIGURATION_MODE 0, 255, 255, 0 // AMARELO
 
 enum ModbusStatus
 {
@@ -29,7 +30,7 @@ struct AppConfig
     char pass[30] = "";
     IPAddress apIP = IPAddress(192, 168, 4, 1);
     IPAddress netMsk = IPAddress(255, 255, 255, 0);
-    bool enableWebServer = true;
+    bool is_configuration_mode = false;
   } wifi;
 
   struct MqttConfig
@@ -90,7 +91,7 @@ struct AppConfig
     ESP.restart();
   }
 
-  void save(FS &fs)
+  bool save(FS &fs)
   {
     if (fs.exists((F("/config.json"))))
     {
@@ -101,7 +102,28 @@ struct AppConfig
 
       if (!err)
       {
-        Serial.println("SAVEEE");
+        // wifi
+        json["wifi"]["ssid"] = wifi.ssid;
+        json["wifi"]["pass"] = wifi.pass;
+
+        // mqtt
+        json["mqtt"]["server"] = mqtt.server;
+        json["mqtt"]["port"] = mqtt.port;
+        json["mqtt"]["interval"] = mqtt.interval;
+
+        // modbus
+        //  json["modbus"]["baudrate"] = modbus.baudrate;
+        //  json["modbus"]["holdings"] = modbus.holdingRegs.size();
+        //  json["modbus"]["coils"] = modbus.coilRegs.size();
+
+        File configFile = fs.open("/config.json", "w");
+        serializeJson(json, configFile);
+
+        Serial.println(F("Configuration updated success!"));
+        serializeJson(json, Serial);
+        configFile.close();
+        Serial.println("");
+        return true;
       }
       else
       {
@@ -110,9 +132,8 @@ struct AppConfig
       }
     }
 
-    Serial.println(F("Error reading configs"));
-    delay(6000);
-    ESP.restart();
+    Serial.println(F("Error writing configs"));
+    return false;
   }
 
 } config;

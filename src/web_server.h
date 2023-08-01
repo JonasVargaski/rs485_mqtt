@@ -39,11 +39,8 @@ public:
 
 void setupWebServer()
 {
-  Serial.print(F("\nEnable web server on: "));
+  Serial.print(F("\nserver IP on: "));
   Serial.println(config.wifi.apIP.toString());
-
-  WiFi.softAPConfig(config.wifi.apIP, config.wifi.apIP, config.wifi.netMsk);
-  WiFi.softAP(config.deviceId.c_str(), hexToStr(ESP.getEfuseMac()));
 
   dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
   dnsServer.start(53, "*", config.wifi.apIP);
@@ -59,6 +56,7 @@ void setupWebServer()
 
   webServer.on("/", HTTP_POST, [](AsyncWebServerRequest *request)
                {
+      bool ok = false;
       int params = request->params();
       for (int i=0; i<params; i++){
         AsyncWebParameter* p = request->getParam(i);
@@ -73,11 +71,15 @@ void setupWebServer()
             config.mqtt.port = p->value().toInt();
           if (p->name() == "mqtt.interval")
             config.mqtt.interval = p->value().toInt();
+          
+          ok = config.save(SPIFFS); 
         }
-        config.save(SPIFFS); 
       }
-      request->send(200);
-      ESP.restart(); });
+      request->send(200, F("text/html"), ok ? F("Success!") : F("Error!"));
+       if(ok){
+          delay(2000);
+          ESP.restart();
+       } });
 
   webServer.addHandler(new HomeRequestHandler()).setFilter(ON_AP_FILTER);
   webServer.onNotFound(notFound);

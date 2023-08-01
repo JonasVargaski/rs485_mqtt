@@ -6,6 +6,7 @@
 #include "Ticker.h"
 #include <PubSubClient.h>
 #include <ModbusMaster.h>
+#include <esp_task_wdt.h>
 #include "Freenove_WS2812_Lib_for_ESP32.h"
 
 #include "pin_config.h"
@@ -14,6 +15,7 @@
 #include "web_server.h"
 
 void mqttPublishHandle(void);
+void handleConfigurationMode(void);
 
 ModbusMaster modbus;
 HardwareSerial Serial485(2);
@@ -27,6 +29,9 @@ Ticker taskMqtt(&mqttPublishHandle, 2000, 0, MILLIS);
 
 void setup()
 {
+  esp_task_wdt_init(10, true);
+
+  pinMode(BUILTIN_BUTTON, INPUT_PULLUP);
   pinMode(RS485_EN_PIN, OUTPUT);
   digitalWrite(RS485_EN_PIN, HIGH);
 
@@ -60,9 +65,7 @@ void setup()
   WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
   WiFi.setHostname(config.deviceId.c_str());
   WiFi.begin(config.wifi.ssid, config.wifi.pass);
-
-  if (config.wifi.enableWebServer)
-    setupWebServer();
+  setupWebServer();
 
   Serial485.begin(config.modbus.baudrate, SERIAL_8E1, RS485_RX_PIN, RS485_TX_PIN);
   modbus.begin(config.modbus.slaveId, Serial485);
@@ -77,90 +80,112 @@ void setup()
 
 void loop()
 {
+  esp_task_wdt_reset();
   yield();
   mqtt.loop();
   taskMqtt.update();
 
-  if (config.wifi.enableWebServer)
-    dnsServer.processNextRequest();
-
-  if (WiFi.status() == WL_CONNECTED)
+  if (config.wifi.is_configuration_mode == false)
   {
-    if (!mqtt.connected())
+    if (digitalRead(BUILTIN_BUTTON) == LOW)
     {
-      strip.setLedColor(LED_COLOR_SERVER_ERROR);
-      mqtt.connect(config.mqtt.clientId.c_str());
+      handleConfigurationMode();
+      return;
+    }
 
+    if (WiFi.status() == WL_CONNECTED)
+    {
+      if (!mqtt.connected())
+      {
+        strip.setLedColor(LED_COLOR_SERVER_ERROR);
+        mqtt.connect(config.mqtt.clientId.c_str());
+
+        if (taskMqtt.state() == RUNNING)
+          taskMqtt.pause();
+      }
+      else if (taskMqtt.state() == PAUSED)
+        taskMqtt.resume();
+
+      if (config.modbus.status == MB_STATUS_IDLE)
+      {
+        // Modubus handler
+        uint8_t result;
+        int arraySize;
+        int partAmount;
+        int startIndex;
+        int endIndex;
+
+        if (config.modbus.holdingRegs.size() > 0)
+        {
+          arraySize = config.modbus.holdingRegs.size();
+          partAmount = (arraySize + config.modbus.recordsPerRead - 1) / config.modbus.recordsPerRead;
+
+          for (int i = 0; i < partAmount; i++)
+          {
+            startIndex = i * config.modbus.recordsPerRead;
+            endIndex = min((i + 1) * config.modbus.recordsPerRead - 1, arraySize - 1);
+
+            modbus.clearResponseBuffer();
+            result = modbus.readHoldingRegisters(startIndex, endIndex);
+            if (result == modbus.ku8MBSuccess)
+            {
+              config.modbus.status = MB_STATUS_PUBLISH;
+              for (int j = startIndex; j <= endIndex; j++)
+                config.modbus.holdingRegs[j] = modbus.getResponseBuffer(j - startIndex);
+            }
+            else
+              strip.setLedColor(LED_COLOR_MODBUS_ERROR);
+          }
+        }
+
+        if (config.modbus.coilRegs.size() > 0)
+        {
+          arraySize = config.modbus.coilRegs.size();
+          partAmount = (arraySize + config.modbus.recordsPerRead - 1) / config.modbus.recordsPerRead;
+
+          for (int i = 0; i < partAmount; i++)
+          {
+            startIndex = i * config.modbus.recordsPerRead;
+            endIndex = min((i + 1) * config.modbus.recordsPerRead - 1, arraySize - 1);
+
+            modbus.clearResponseBuffer();
+            result = modbus.readCoils(startIndex, endIndex);
+            if (result == modbus.ku8MBSuccess)
+            {
+              config.modbus.status = MB_STATUS_PUBLISH;
+              for (int j = startIndex; j <= endIndex; j++)
+              {
+                int bufferIndex = j - startIndex;
+                config.modbus.coilRegs[j] = (modbus.getResponseBuffer(bufferIndex / 16) >> (bufferIndex % 16)) & 0x01;
+              }
+            }
+            else
+              strip.setLedColor(LED_COLOR_MODBUS_ERROR);
+          }
+        }
+      }
+    }
+    else
+    {
+      strip.setLedColor(LED_COLOR_WIFI_ERROR);
       if (taskMqtt.state() == RUNNING)
         taskMqtt.pause();
     }
-    else if (taskMqtt.state() == PAUSED)
-      taskMqtt.resume();
   }
   else
   {
-    strip.setLedColor(LED_COLOR_WIFI_ERROR);
-    if (taskMqtt.state() == RUNNING)
-      taskMqtt.pause();
+    dnsServer.processNextRequest();
   }
+}
 
-  if (WiFi.status() == WL_CONNECTED && config.modbus.status == MB_STATUS_IDLE)
-  {
-    uint8_t result;
-    int arraySize;
-    int partAmount;
-    int startIndex;
-    int endIndex;
-
-    if (config.modbus.holdingRegs.size() > 0)
-    {
-      arraySize = config.modbus.holdingRegs.size();
-      partAmount = (arraySize + config.modbus.recordsPerRead - 1) / config.modbus.recordsPerRead;
-
-      for (int i = 0; i < partAmount; i++)
-      {
-        startIndex = i * config.modbus.recordsPerRead;
-        endIndex = min((i + 1) * config.modbus.recordsPerRead - 1, arraySize - 1);
-
-        modbus.clearResponseBuffer();
-        result = modbus.readHoldingRegisters(startIndex, endIndex);
-        if (result == modbus.ku8MBSuccess)
-        {
-          config.modbus.status = MB_STATUS_PUBLISH;
-          for (int j = startIndex; j <= endIndex; j++)
-            config.modbus.holdingRegs[j] = modbus.getResponseBuffer(j - startIndex);
-        }
-        else
-          strip.setLedColor(LED_COLOR_MODBUS_ERROR);
-      }
-    }
-
-    if (config.modbus.coilRegs.size() > 0)
-    {
-      arraySize = config.modbus.coilRegs.size();
-      partAmount = (arraySize + config.modbus.recordsPerRead - 1) / config.modbus.recordsPerRead;
-
-      for (int i = 0; i < partAmount; i++)
-      {
-        startIndex = i * config.modbus.recordsPerRead;
-        endIndex = min((i + 1) * config.modbus.recordsPerRead - 1, arraySize - 1);
-
-        modbus.clearResponseBuffer();
-        result = modbus.readCoils(startIndex, endIndex);
-        if (result == modbus.ku8MBSuccess)
-        {
-          config.modbus.status = MB_STATUS_PUBLISH;
-          for (int j = startIndex; j <= endIndex; j++)
-          {
-            int bufferIndex = j - startIndex;
-            config.modbus.coilRegs[j] = (modbus.getResponseBuffer(bufferIndex / 16) >> (bufferIndex % 16)) & 0x01;
-          }
-        }
-        else
-          strip.setLedColor(LED_COLOR_MODBUS_ERROR);
-      }
-    }
-  }
+void handleConfigurationMode()
+{
+  Serial.println(F("configuration mode"));
+  config.wifi.is_configuration_mode = true;
+  taskMqtt.pause();
+  strip.setLedColor(LED_COLOR_CONFIGURATION_MODE);
+  WiFi.softAPConfig(config.wifi.apIP, config.wifi.apIP, config.wifi.netMsk);
+  WiFi.softAP(config.deviceId.c_str(), hexToStr(ESP.getEfuseMac()));
 }
 
 void mqttPublishHandle()

@@ -3,6 +3,7 @@
 
 // PIN
 #define PIN_5V_EN 16
+#define BUILTIN_BUTTON 0
 
 #define CAN_TX_PIN 26
 #define CAN_RX_PIN 27
