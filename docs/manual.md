@@ -1,9 +1,13 @@
 ## Led indicador de status:
 
 `AMARELO `Indica que está no modo de configuração, habilita o servidor web e uma rede wifi com ip 102.168.4.1.
+
 `VERMELHO  `Indica que não conseguiu se conectar a rede wifi configurada.
+
 `ROSA `Indica que está conectado a rede wifi mas não consegue se conectar ao servidor na nuvem. Erro por falta de internet, ou mal configuração do servidor mqtt.
+
 `AZUL `Indica que não está conseguindo se comunicar com a rede RS485. Verificar configuração da rede no outro dispositivo, ou conexão.
+
 `VERDE `Indica que está conectado e operando normalmente.
 
 ## Configuração dos parâmetros:
