@@ -1,6 +1,6 @@
 ## Led indicador de status:
 
-`AMARELO `Indica que está no modo de configuração, habilita o servidor web e uma rede wifi com ip 102.168.4.1.
+`AMARELO `Indica que está no modo de configuração, habilita o servidor web e uma rede wifi com ip 192.168.4.1.
 
 `VERMELHO  `Indica que não conseguiu se conectar a rede wifi configurada.
 
