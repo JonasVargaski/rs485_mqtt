@@ -18,6 +18,7 @@ Conectar a está rede, a senha da rede é o código do dispositivo, encontrado n
 
 Alterar somente os campos:
 `wifi.ssid` nome da rede a qual deseja se conectar.
+
 `wifi.pass` senha da rede a qual deseja se conectar. (deixar em branco caso nao possua).
 
 Após os ajustes das configurações a placa será reiniciada automaticamente, retornando para o modo de operação.
