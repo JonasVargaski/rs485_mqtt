@@ -1,4 +1,4 @@
-import { TInfoIndicatorProps } from "@/components/info-indicator";
+import { TInfoIndicatorProps } from "@/components/device/info-indicator";
 import { TConnectionStatus } from "@/hooks/useMqttDevice";
 
 enum eHolding {
