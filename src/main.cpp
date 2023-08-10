@@ -114,6 +114,7 @@ void loop()
         int partAmount;
         int startIndex;
         int endIndex;
+        bool error = false;
 
         if (config.modbus.holdingRegs.size() > 0)
         {
@@ -134,7 +135,10 @@ void loop()
                 config.modbus.holdingRegs[j] = modbus.getResponseBuffer(j - startIndex);
             }
             else
+            {
+              error = true;
               strip.setLedColor(LED_COLOR_MODBUS_ERROR);
+            }
           }
         }
 
@@ -160,9 +164,15 @@ void loop()
               }
             }
             else
+            {
+              error = true;
               strip.setLedColor(LED_COLOR_MODBUS_ERROR);
+            }
           }
         }
+
+        if (error)
+          config.modbus.status = MB_STATUS_ERROR;
       }
     }
     else
@@ -190,12 +200,13 @@ void handleConfigurationMode()
 
 void mqttPublishHandle()
 {
-  if (config.modbus.status == MB_STATUS_PUBLISH)
+  if (config.modbus.status == MB_STATUS_PUBLISH || config.modbus.status == MB_STATUS_ERROR)
   {
     StaticJsonDocument<JSON_SIZE> json;
     JsonObject root = json.to<JsonObject>();
     root["id"] = hexToStr(ESP.getEfuseMac());
     root["rssi"] = WiFi.RSSI();
+    root["rs485"] = config.modbus.status != MB_STATUS_ERROR;
 
     JsonArray holding = root.createNestedArray("holding");
     for (int i = 0; i < config.modbus.holdingRegs.size(); i++)

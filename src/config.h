@@ -18,6 +18,7 @@ enum ModbusStatus
 {
   MB_STATUS_IDLE,
   MB_STATUS_PUBLISH,
+  MB_STATUS_ERROR
 };
 
 struct AppConfig
