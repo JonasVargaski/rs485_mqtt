@@ -1,64 +1,113 @@
 <!DOCTYPE html>
-<html>
+<html lang='pt-BR'>
 
 <head>
   <meta charset="UTF-8" />
-  <title>Mqtt485Gateway - config</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>485 Gateway</title>
   <style>
+    * {
+      box-sizing: border-box;
+      padding: 0;
+      margin: 0;
+    }
+
     body {
+      height: 100%;
+      width: 100%;
       font-family: Arial, sans-serif;
       display: grid;
       place-content: center;
+      text-align: center;
+      background: #f1f1f1;
+      color: #333;
+    }
+
+    .container {
+      max-width: 600px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
     }
 
     form {
       width: 100%;
-      max-width: 400px;
       padding: 1rem;
+      border: .0625rem solid #ddd;
+      border-radius: .375rem;
+      background: #ffffff;
+    }
+
+    section {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+    }
+
+    input {
+      outline: none;
       border: 1px solid #ccc;
-      border-radius: 4px;
+      border-radius: 6px;
+      padding: 6px;
+      width: 55%;
     }
 
-    pre {
-      margin-top: 0.125rem;
-      padding: 0.5rem;
-      background-color: #f9f9f9;
-      border-radius: 4px;
-      color: #141414;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-    }
-
-    input[type="submit"] {
-      background-color: #4caf50;
+    button[type="submit"] {
+      background-color: #111;
       width: 100%;
       color: white;
-      padding: 10px 20px;
+      font-weight: bold;
+      padding: .625rem 1.25rem;
       border: none;
-      margin-top: 1rem;
-      border-radius: 0.25rem;
-      font-size: 1rem;
+      margin-top: 24px;
+      border-radius: 4px;
+      font-size: 16px;
       cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.5;
     }
   </style>
 </head>
 
 <body onload="loadConfig()">
-  <h1>Mqtt485 Gateway</h1>
-  <form method="post" action="/upload" enctype="multipart/form-data">
+  <div class='container'>
+    <h3>Configurar parâmetros</h3>
+    <form method="post" action="/">
+      <div id="fields"></div>
+      <button disabled type="submit">Salvar</button>
+    </form>
+  </div>
 
-    <label>/config.json</label>
-    <pre></pre>
-
-    <input accept=".json" type="file" name="file" />
-    <input type="submit" value="Upload" />
-  </form>
 
   <script>
     function loadConfig() {
-      fetch('/api/config').then(data => data.json().catch(() => alert('Error reading configs.')).then(json => {
-        document.querySelector('pre').textContent = JSON.stringify(json, null, 2);
-      }))
+
+      fetch('/api/config').then(data => data.json().then(config => {
+        const fields = document.querySelector('#fields')
+        document.querySelector('button').disabled = false
+
+        Object.keys(config).forEach(entity => {
+          Object.keys(config[entity]).forEach(key => {
+            const field = `${entity}.${key}`
+            const section = document.createElement('section')
+            const label = document.createElement('label')
+            const input = document.createElement('input')
+            label.htmlFor = field
+            label.textContent = field
+            input.id = field
+            input.name = field
+            input.value = config[entity][key];
+            section.append(label)
+            section.append(input)
+            fields.append(section)
+          })
+        })
+      })).catch(() => document.querySelector('#fields').textContent = 'Erro ao ler parâmetros')
     }
   </script>
 </body>

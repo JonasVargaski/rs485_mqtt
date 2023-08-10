@@ -11,11 +11,6 @@ String hexToStr(const unsigned long &h, const byte &l = 8)
   return s;
 }
 
-void toggleBuiltInLed()
-{
-  digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
-}
-
 uint32_t random32()
 {
   return ((uint32_t)random(0xFFFF) << 16) | random(0xFFFF);

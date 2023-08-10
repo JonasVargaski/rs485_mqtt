@@ -6,18 +6,24 @@
 #include <vector>
 #include "utils.h"
 
-#define BUTTON_BUILTIN 0
 const size_t JSON_SIZE = JSON_OBJECT_SIZE(50) + 2048;
+
+#define LED_COLOR_OK 0, 0, 255, 0                   // VERDE
+#define LED_COLOR_MODBUS_ERROR 0, 0, 0, 255         // AZUL
+#define LED_COLOR_SERVER_ERROR 0, 214, 37, 152      // ROSA
+#define LED_COLOR_WIFI_ERROR 0, 255, 0, 0           // VERMELHO
+#define LED_COLOR_CONFIGURATION_MODE 0, 255, 255, 0 // AMARELO
 
 enum ModbusStatus
 {
   MB_STATUS_IDLE,
   MB_STATUS_PUBLISH,
+  MB_STATUS_ERROR
 };
 
 struct AppConfig
 {
-  String deviceId = "Mqtt485Gateway-" + hexToStr(ESP.getEfuseMac());
+  String deviceId = "485Gateway-" + hexToStr(ESP.getEfuseMac());
 
   struct WifiConfig
   {
@@ -25,7 +31,7 @@ struct AppConfig
     char pass[30] = "";
     IPAddress apIP = IPAddress(192, 168, 4, 1);
     IPAddress netMsk = IPAddress(255, 255, 255, 0);
-    bool enableWebServer = !digitalRead(BUTTON_BUILTIN);
+    bool is_configuration_mode = false;
   } wifi;
 
   struct MqttConfig
@@ -40,7 +46,6 @@ struct AppConfig
   struct ModbusConfig
   {
     int baudrate = 9600;
-    int serialType = 3;
     int slaveId = 1;
     int recordsPerRead = 35;
     ModbusStatus status = MB_STATUS_IDLE;
@@ -70,7 +75,6 @@ struct AppConfig
 
         // modbus
         modbus.baudrate = json[F("modbus")][F("baudrate")].as<int>() | modbus.baudrate;
-        modbus.serialType = json[F("modbus")][F("serialType")].as<int>() | modbus.serialType;
         modbus.holdingRegs.resize(json[F("modbus")][F("holdings")].as<int>() | 0);
         modbus.coilRegs.resize(json[F("modbus")][F("coils")].as<int>() | 0);
 
@@ -86,6 +90,51 @@ struct AppConfig
     Serial.println(F("Error reading configs"));
     delay(6000);
     ESP.restart();
+  }
+
+  bool save(FS &fs)
+  {
+    if (fs.exists((F("/config.json"))))
+    {
+      File file = fs.open(F("/config.json"), "r");
+      StaticJsonDocument<JSON_SIZE> json;
+      DeserializationError err = deserializeJson(json, file);
+      file.close();
+
+      if (!err)
+      {
+        // wifi
+        json["wifi"]["ssid"] = wifi.ssid;
+        json["wifi"]["pass"] = wifi.pass;
+
+        // mqtt
+        json["mqtt"]["server"] = mqtt.server;
+        json["mqtt"]["port"] = mqtt.port;
+        json["mqtt"]["interval"] = mqtt.interval;
+
+        // modbus
+        //  json["modbus"]["baudrate"] = modbus.baudrate;
+        //  json["modbus"]["holdings"] = modbus.holdingRegs.size();
+        //  json["modbus"]["coils"] = modbus.coilRegs.size();
+
+        File configFile = fs.open("/config.json", "w");
+        serializeJson(json, configFile);
+
+        Serial.println(F("Configuration updated success!"));
+        serializeJson(json, Serial);
+        configFile.close();
+        Serial.println("");
+        return true;
+      }
+      else
+      {
+        Serial.print(F("Error: deserializeJson() returned "));
+        Serial.println(err.f_str());
+      }
+    }
+
+    Serial.println(F("Error writing configs"));
+    return false;
   }
 
 } config;
