@@ -30,3 +30,23 @@ export async function getDevice(device_id: string) {
 
   return devicesRef.docs.map((x) => ({ ...x.data(), id: x.id }));
 }
+
+export async function getAllDevices() {
+  const devicesRef = await getDocs(
+    query(
+      collection(db, "devices").withConverter({
+        toFirestore: (data: TDevice) => data,
+        fromFirestore: (snap) => {
+          const data = snap.data();
+          return {
+            ...data,
+            created_at: data.created_at.toDate(),
+            updated_at: data.updated_at.toDate(),
+          } as TDevice;
+        },
+      })
+    )
+  );
+
+  return devicesRef.docs.map((x) => ({ ...x.data(), id: x.id }));
+}
