@@ -10,7 +10,7 @@
   },
   "modbus": {
     "baudrate": 9600,
-    "holdings": 11,
-    "coils": 61
+    "holdings": 12,
+    "coils": 62
   }
 }
