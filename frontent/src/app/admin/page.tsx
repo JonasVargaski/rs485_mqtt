@@ -1,7 +1,9 @@
 import { getAllDevices } from "@/services/devices";
 import { ViewAll } from "./view-all";
 
-export default async function admin() {
+export const revalidate = 60; // 60 seconds
+
+export default async function Admin() {
   const devices = await getAllDevices();
 
   return (
