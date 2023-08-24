@@ -129,7 +129,7 @@ function parseMessageToDeviceData(message: string): TDeviceData {
   );
   result.main.co2 = formatInt16(
     data.holding[eHolding["({Link2}1@W40011)"]],
-    3,
+    4,
     0
   );
 
