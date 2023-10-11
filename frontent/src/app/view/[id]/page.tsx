@@ -1,10 +1,17 @@
 import { MqttDevice } from "./device-view";
 import { getDevice } from "@/services/devices";
+import { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 type Props = {
   params: { id?: string };
 };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  return {
+    title: `Device - ${params.id}`,
+  };
+}
 
 export default async function Home({ params }: Props) {
   if (!params.id) return redirect("/device/not-found");
